@@ -121,10 +121,10 @@ class Gazebo_Linefollow_Env(gazebo_env.GazeboEnv):
 
 
         if not line_detected:
-            if self.timeout > 0:
+            if self.timeout > 3:
                 done = True
             else:
-                self.timeout = 1
+                self.timeout += 1
 
         if line_detected:
             cv2.circle(cv_image, (cX, height - 20), 5, (0, 255, 0), -1)
@@ -181,12 +181,23 @@ class Gazebo_Linefollow_Env(gazebo_env.GazeboEnv):
 
         # Set the rewards for your action
         if not done:
+            try:
+                line_pos = state.index(1)
+            except ValueError:
+                line_pos = 0
+
             if action == 0:  # FORWARD
-                reward = 4
+                reward = 20
             elif action == 1:  # LEFT
-                reward = 2
+                reward = 5
             else:
-                reward = 2  # RIGHT
+                reward = 0  # RIGHT
+            if line_pos in [4, 5]:
+                reward = 20
+            ##elif line_pos in [3,6]:
+            ##    reward = 10
+            ##elif line_pos in [2,7]:
+            ##    reward = 2
         else:
             reward = -200
 
