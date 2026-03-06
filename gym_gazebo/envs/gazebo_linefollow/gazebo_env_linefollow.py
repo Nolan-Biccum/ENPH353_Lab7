@@ -174,24 +174,43 @@ class Gazebo_Linefollow_Env(gazebo_env.GazeboEnv):
         state, done = self.process_image(data)
 
         # Set the rewards for your action
-        if not done:
             ##try:
-            ##    line_pos = state.index(1)
-            ##except ValueError:
-            ##    line_pos = 0
-
-            if action == 0:  # FORWARD
-                reward = 20
-            elif action == 1:  # LEFT
-                reward = 0
-            else:
-                reward = 0  # RIGHT
+                ##    line_pos = state.index(1)
+                ##except ValueError:
+                ##    line_pos = 0
             ##if line_pos in [4, 5]:
             ##    reward = 20
             ##elif line_pos in [3,6]:
             ##    reward = 10
             ##elif line_pos in [2,7]:
             ##    reward = 2
+
+            ##if action == 0:  # FORWARD
+            ##    reward = 20
+            ##elif action == 1:  # LEFT
+            ##    reward = 5
+            ##else:
+            ##    reward = 5  # RIGHT
+
+        if not done:
+            line_bin = state[:10].index(1) if 1 in state[:10] else -1
+
+            if line_bin == -1:
+                reward = -50
+            else:
+                distance_from_center = abs(line_bin - 4.5)
+                if action == 0: # Forward
+                    reward = 20 - (distance_from_center * 4)
+                elif action == 1: # LEFT
+                    if line_bin < 4:
+                        reward = 15
+                    else:
+                        reward = -10
+                else:  # Right
+                    if line_bin > 5:
+                        reward = 15
+                    else: reward = -10
+            
         else:
             reward = -200
 
