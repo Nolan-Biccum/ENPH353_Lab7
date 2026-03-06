@@ -56,7 +56,7 @@ class Gazebo_Linefollow_Env(gazebo_env.GazeboEnv):
         # cv2.imshow("raw", cv_image)
 
         NUM_BINS = 10
-        state = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        state = [0]*20
         done = False
 
         # TODO: Analyze the cv_image and compute the state array and
@@ -77,60 +77,54 @@ class Gazebo_Linefollow_Env(gazebo_env.GazeboEnv):
 
         height, width, _ =cv_image.shape
 
-        roi_start_row = int(2*height/5)
-        roi = cv_image[roi_start_row:height, 0:width]
+        def get_roi_state(roi, width):
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            blur = cv2.GaussianBlur(gray, (5,5), 0)
+            _, thresh_img = cv2.threshold(blur, 150, 255, cv2.THRESH_BINARY_INV)
+            contours, _ = cv2.findContours(thresh_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-        gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(gray, (5,5), 0)
+            row_state = [0] * 10
+            cX = None
+            if len(contours) > 0:
+                largest_contour = max(contours, key=cv2.contourArea)
+                M = cv2.moments(largest_contour)
+                if M["m00"] != 0:
+                    cX = int(M["m10"] / M["m00"])
+                    bin_index = min(int(cX / (width / 10)), 9)
+                    row_state[bin_index] = 1
+            return row_state, cX
+        
+        lower_roi = cv_image[int(3*height/4):height, 0:width]
+        lower_state, lower_cX = get_roi_state(lower_roi, width)
 
-        # Thresholding: 150 is the cutoff to isolate the line
-        _, thresh_img = cv2.threshold(blur, 150, 255, cv2.THRESH_BINARY_INV)
-        contours, _ = cv2.findContours(thresh_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        line_detected = False
+        mid_roi = cv_image[int(height/2):int(3*height/4), 0:width]
+        mid_state, mid_cX = get_roi_state(mid_roi, width)
 
-        if len(contours) > 0:
-            #Select the largest contour
-            largest_contour = max(contours, key=cv2.contourArea)
-            M = cv2.moments(largest_contour)
+        state = lower_state + mid_state
 
-            if M["m00"] != 0:
-                line_detected = True
-                cX = int(M["m10"] / M["m00"])
-                self.timeout = 0
-
-                if cX >= 9*width/10:
-                    state = [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-                elif cX >= 8*width/10:
-                    state = [0, 0, 0, 0, 0, 0, 0, 0, 1, 0]
-                elif cX >= 7*width/10:
-                    state = [0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
-                elif cX >= 6*width/10:
-                    state = [0, 0, 0, 0, 0, 0, 1, 0, 0, 0]
-                elif cX >= 5*width/10:
-                    state = [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
-                elif cX >= 4*width/10:
-                    state = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0]
-                elif cX >= 3*width/10:
-                    state = [0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
-                elif cX >= 2*width/10:
-                    state = [0, 0, 1, 0, 0, 0, 0, 0, 0, 0]
-                elif cX >= width/10:
-                    state = [0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
-                else:
-                    state = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-
-
+        line_detected = 1 in lower_state
         if not line_detected:
             if self.timeout > 3:
                 done = True
             else:
                 self.timeout += 1
+        else:
+            self.timeout = 0
 
-        if line_detected:
-            cv2.circle(cv_image, (cX, height - 20), 5, (0, 255, 0), -1)
+        if lower_cX is not None:
+            cv2.circle(cv_image, (lower_cX, int(7*height/8)), 5, (0, 0, 255), -1)
+        
+        lower_text = str(lower_state)
+        mid_text = str(mid_state)
+        lower_size = cv2.getTextSize(lower_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+        mid_size = cv2.getTextSize(mid_text, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
+        cv2.putText(cv_image, mid_text, (width - mid_size[0] - 10, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1)
+        cv2.putText(cv_image, lower_text, (width - lower_size[0] - 10, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        
 
         cv2.imshow("Original Feed", cv_image)
-
         cv2.waitKey(1)
 
         return state, done
@@ -181,19 +175,19 @@ class Gazebo_Linefollow_Env(gazebo_env.GazeboEnv):
 
         # Set the rewards for your action
         if not done:
-            try:
-                line_pos = state.index(1)
-            except ValueError:
-                line_pos = 0
+            ##try:
+            ##    line_pos = state.index(1)
+            ##except ValueError:
+            ##    line_pos = 0
 
             if action == 0:  # FORWARD
                 reward = 20
             elif action == 1:  # LEFT
-                reward = 5
+                reward = 0
             else:
                 reward = 0  # RIGHT
-            if line_pos in [4, 5]:
-                reward = 20
+            ##if line_pos in [4, 5]:
+            ##    reward = 20
             ##elif line_pos in [3,6]:
             ##    reward = 10
             ##elif line_pos in [2,7]:

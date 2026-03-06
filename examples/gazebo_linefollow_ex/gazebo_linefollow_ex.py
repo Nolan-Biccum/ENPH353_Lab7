@@ -36,7 +36,7 @@ if __name__ == '__main__':
     last_time_steps = numpy.ndarray(0)
 
     qlearn = qlearn.QLearn(actions=range(env.action_space.n),
-                           alpha=0.2, gamma=0.8, epsilon=0.9)
+                           alpha=0.5, gamma=0.5, epsilon=0.9)
 
     # qlearn.loadQ("QValues_A+")
     qlearn.loadQ("QValues_BEST")
@@ -72,13 +72,13 @@ if __name__ == '__main__':
             observation, reward, done, info = env.step(action)
             cumulated_reward += reward
 
-            if highest_reward < cumulated_reward:
-                highest_reward = cumulated_reward
-                qlearn.saveQ("QValues_BEST")
-
             nextState = ','.join(map(str, observation))
 
             qlearn.learn(state, action, reward, nextState)
+
+            if highest_reward < cumulated_reward:
+                highest_reward = cumulated_reward
+                qlearn.saveQ("QValues_BEST")
 
             env._flush(force=True)
 
@@ -89,9 +89,6 @@ if __name__ == '__main__':
                 break
 
         print("===== Completed episode {}".format(x))
-
-        if highest_reward < cumulated_reward:
-                highest_reward = cumulated_reward
 
         if (x > 0) and (x % 5 == 0):
             qlearn.saveQ("QValues")

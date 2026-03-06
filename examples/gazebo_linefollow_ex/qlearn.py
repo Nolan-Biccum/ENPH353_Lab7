@@ -70,17 +70,17 @@ class QLearn:
         # THE NEXT LINES NEED TO BE MODIFIED TO MATCH THE REQUIREMENTS ABOVE 
         if random.random() < self.epsilon:
             action = random.choice(self.actions)
+            return action
 
+        q_values = [self.getQ(state, a) for a in self.actions]
+        max_q = max(q_values)
+
+        count = q_values.count(max_q)
+        if count > 1:
+            best_actions = [self.actions[i] for i in range(len(self.actions)) if q_values[i] == max_q]
+            action = random.choice(best_actions)
         else:
-            q_values = [self.getQ(state, a) for a in self.actions]
-            max_q = max(q_values)
-
-            count = q_values.count(max_q)
-            if count > 1:
-                best_actions = [self.actions[i] for i in range(len(self.actions)) if q_values[i] == max_q]
-                action = random.choice(best_actions)
-            else:
-                action = self.actions[q_values.index(max_q)]
+            action = self.actions[q_values.index(max_q)]
         
         if return_q:
             return action, self.getQ(state, action)
@@ -112,7 +112,3 @@ class QLearn:
         new_q = old_q + self.alpha * (td_target - old_q)
 
         self.q[(state1, action1)] = new_q
-
-        
-
-        self.q[(state1,action1)] = reward
